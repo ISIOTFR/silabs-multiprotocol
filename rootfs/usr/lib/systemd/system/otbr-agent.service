@@ -1,0 +1,20 @@
+[Unit]
+Description=OpenThread Border Router Agent
+ConditionPathExists=/usr/sbin/otbr-agent
+Requires=dbus.socket
+Requires=cpcd.service
+After=dbus.socket
+After=cpcd.service
+
+[Service]
+EnvironmentFile=-/etc/default/otbr-agent
+ExecStartPre=service mdns start
+ExecStart=/usr/sbin/otbr-agent $OTBR_AGENT_OPTS
+KillMode=mixed
+Restart=on-failure
+RestartSec=5
+RestartPreventExitStatus=SIGKILL
+
+[Install]
+WantedBy=multi-user.target
+Alias=otbr-agent.service

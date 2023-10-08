@@ -86,7 +86,7 @@ RUN \
     && cmake ../ \
        -DCMAKE_TOOLCHAIN_FILE=../debian.cmake \
        -DENABLE_ENCRYPTION=FALSE \
-    && make \
+    && make -j \
     && make install
 
 FROM --platform=linux/amd64 cross-builder-${TARGETARCH} AS zigbeed-builder
@@ -124,7 +124,7 @@ RUN \
 
 FROM --platform=$TARGETPLATFORM debian:bookworm
 
-WORKDIR /
+WORKDIR /root
 
 ENV \
     LANG="C.UTF-8" \
@@ -149,6 +149,19 @@ RUN \
        netcat-traditional \
        sudo \
 	   cmake
+
+RUN cd /lib/systemd/system/sysinit.target.wants/ \
+    && rm $(ls | grep -v systemd-tmpfiles-setup)
+
+RUN rm -f /lib/systemd/system/multi-user.target.wants/* \
+    /etc/systemd/system/*.wants/* \
+    /lib/systemd/system/local-fs.target.wants/* \
+    /lib/systemd/system/sockets.target.wants/*udev* \
+    /lib/systemd/system/sockets.target.wants/*initctl* \
+    /lib/systemd/system/basic.target.wants/* \
+    /lib/systemd/system/anaconda.target.wants/* \
+    /lib/systemd/system/plymouth* \
+    /lib/systemd/system/systemd-update-utmp*
 
 COPY --from=zigbeed-builder \
      /usr/src/gecko_sdk/util/third_party/ot-br-posix /usr/src/ot-br-posix
@@ -218,9 +231,11 @@ RUN \
 COPY --from=zigbeed-builder \
      /usr/src/gecko_sdk/protocol/zigbee/app/zigbeed/output/build/debug/zigbeed \
      /usr/local/bin
-	 
 
-RUN set +x \
+RUN set -x \
+	&& systemctl enable otbr-agent
+
+RUN set -x \
 	&& export SUDO_FORCE_REMOVE=yes \
 	&& apt-get remove -y build-essential patch cmake sudo \
 	&& apt -y autoremove \
@@ -234,6 +249,7 @@ RUN ldconfig && touch /accept_silabs_msla
 WORKDIR /root
 
 VOLUME [ "/sys/fs/cgroup" ]
+EXPOSE 8081
 
 CMD ["/lib/systemd/systemd"]
 
